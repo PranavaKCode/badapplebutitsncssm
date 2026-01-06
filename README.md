@@ -37,7 +37,76 @@ def create_tiles(logo_path, size):
     
     return w_on_b, b_on_w
 ```
+## data aquisition and initial tilling
+Because downloading 6,500+ files manually is inefficient, we utilized a Python-based streaming pipeline. This script downloads the raw frames directly from GitHub into memory, converts them into NCSSM logo tiles, and saves the output.
+```python
+import os
+import requests
+from io import BytesIO
+from PIL import Image, ImageOps
+from concurrent.futures import ThreadPoolExecutor
 
+LOGO_PATH = "ncssm_logo.png"
+OUTPUT_DIR = "ncssm_bad_apple_output"
+GRID_WIDTH = 80   # Number of logos wide
+TILE_SIZE = 24    # Size of each logo (80 * 24 = 1920px wide)
+TOTAL_FRAMES = 6572
+RAW_URL_BASE = "https://raw.githubusercontent.com/trung-kieen/bad-apple-ascii/main/frames-bad-apple/out{:04d}.jpg"
+
+if not os.path.exists(OUTPUT_DIR):
+    os.makedirs(OUTPUT_DIR)
+
+def create_tiles(size):
+    base = Image.open(LOGO_PATH).convert("RGBA")
+    side = max(base.size)
+    padded = Image.new("RGBA", (side, side), (255, 255, 255, 0))
+    padded.paste(base, ((side - base.width)//2, (side - base.height)//2))
+    base = padded.resize((size, size), Image.Resampling.LANCZOS)
+    mask = ImageOps.invert(base.convert("L"))
+    
+    # Dark Mode Tile (White logo on Black BG)
+    w_on_b = Image.new("RGB", (size, size), (0, 0, 0))
+    w_on_b.paste(Image.new("RGB", (size, size), (255, 255, 255)), (0, 0), mask=mask)
+    
+    # Bright Mode Tile (Black logo on White BG)
+    b_on_w = Image.new("RGB", (size, size), (255, 255, 255))
+    b_on_w.paste(Image.new("RGB", (size, size), (0, 0, 0)), (0, 0), mask=mask)
+    return w_on_b, b_on_w
+
+TILE_W_ON_B, TILE_B_ON_W = create_tiles(TILE_SIZE)
+
+def process_frame(frame_num):
+    filename = f"out{frame_num:04d}.jpg"
+    save_path = os.path.join(OUTPUT_DIR, filename)
+    if os.path.exists(save_path): return
+
+    try:
+        # 1. Direct Download from GitHub raw storage
+        url = RAW_URL_BASE.format(frame_num)
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200: return
+
+        # 2. Frame Analysis
+        frame = Image.open(BytesIO(response.content)).convert("L")
+        aspect = frame.height / frame.width
+        grid_height = int(GRID_WIDTH * aspect)
+        small = frame.resize((GRID_WIDTH, grid_height), Image.Resampling.BILINEAR)
+        
+        # 3. Procedural Tiling
+        canvas = Image.new("RGB", (GRID_WIDTH * TILE_SIZE, grid_height * TILE_SIZE))
+        for y in range(grid_height):
+            for x in range(GRID_WIDTH):
+                pixel = small.getpixel((x, y))
+                tile = TILE_W_ON_B if pixel > 127 else TILE_B_ON_W
+                canvas.paste(tile, (x * TILE_SIZE, y * TILE_SIZE))
+        
+        canvas.save(save_path, "JPEG", quality=90)
+    except Exception as e:
+        print(f"Error on frame {frame_num}: {e}")
+
+if __name__ == "__main__":
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(process_frame, range(1, TOTAL_FRAMES + 1))
 ---
 
 ## 3. Technical Phase 2: High-Performance Parallel Rendering
