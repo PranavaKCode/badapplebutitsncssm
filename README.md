@@ -3,13 +3,13 @@
 **Hardware:** NVIDIA H200 GPU | 128GB RAM | 16-Core CPU  
 
 ## 1.Goal
-The goal of this project was to transform the 6,572 frames of the "Bad Apple" animation into a mosaic where every "pixel" of the video is represented by an NCSSM logo. The final product includes a full-length high-definition video and a "Convergence Finale" GIF that transitions into a single, high-resolution logo.
+The goal of this project was to transform the 6,572 frames of the "Bad Apple" animation into a mosaic where every "pixel" of the video is represented by an NCSSM logo. The final product includes a full-length high-definition video and a GIF that transitions into a a high res. logo.
 
 ---
-## 2. Technical Phase 1: Logo Engineering
-To ensure a professional aesthetic, we avoided hard-thresholding (which causes jagged edges). Instead, we used a **soft-masking** technique in Python (Pillow) to preserve anti-aliasing.
+## 2. Logo Engineering
+We avoided hard-thresholding (which causes jagged edges). Instead, we used a soft-masking technique in Python (Pillow)
 
-### The Logic:
+### logic:
 * **Dark Tile:** White logo on a Black background (Used for silhouettes).
 * **Bright Tile:** Black logo on a White background (Used for the background).
 
